@@ -1,0 +1,89 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:batch="http://www.springframework.org/schema/batch" xmlns:task="http://www.springframework.org/schema/task"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/batch
+	http://www.springframework.org/schema/batch/spring-batch-2.2.xsd
+	http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+
+<import resource="../config/context.xml" />
+
+	<bean id="report" class="com.mkyong.model.Report" scope="prototype" />
+
+	<batch:job id="reportJob">
+		<batch:step id="step1">
+			<batch:tasklet>
+				<batch:chunk reader="flatFileItemReader" writer="mysqlItemWriter"
+					commit-interval="2">
+				</batch:chunk>
+			</batch:tasklet>
+		</batch:step>
+	</batch:job>
+	
+	<bean id="multiResourceReader"
+		class=" org.springframework.batch.item.file.MultiResourceItemReader">
+		<property name="resources" value="file:csv/inputs/domain-*.csv" />
+		<property name="delegate" ref="flatFileItemReader" />
+	</bean>
+	
+	<bean id="flatFileItemReader" class="org.springframework.batch.item.file.FlatFileItemReader">
+
+		<property name="lineMapper">
+			<bean class="org.springframework.batch.item.file.mapping.DefaultLineMapper">
+
+				<property name="lineTokenizer">
+					<bean
+						class="org.springframework.batch.item.file.transform.DelimitedLineTokenizer">
+						<property name="names" value="id, domain" />
+					</bean>
+				</property>
+				<property name="fieldSetMapper">
+					<bean
+						class="org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper">
+						<property name="prototypeBeanName" value="domain" />
+					</bean>
+				</property>
+			</bean>
+		</property>
+
+	</bean>
+	
+	<bean id="flatFileItemWriter" class="org.springframework.batch.item.file.FlatFileItemWriter">
+
+		<property name="resource" value="file:csv/outputs/domain.all.csv" />
+		<property name="appendAllowed" value="true" />
+		<property name="lineAggregator">
+			<bean
+				class="org.springframework.batch.item.file.transform.DelimitedLineAggregator">
+				<property name="delimiter" value="," />
+				<property name="fieldExtractor">
+					<bean
+						class="org.springframework.batch.item.file.transform.BeanWrapperFieldExtractor">
+						<property name="names" value="id, domain" />
+					</bean>
+				</property>
+			</bean>
+		</property>
+
+	</bean>
+	
+
+	<bean id="mysqlItemWriter"
+		class="org.springframework.batch.item.database.JdbcBatchItemWriter">
+		<property name="dataSource" ref="dataSource" />
+		<property name="sql">
+			<value>
+            <![CDATA[        
+            	insert into ACCOUNT_RECIEVABLE (SEQ_ID, BATCH_ID, WBAN_NO, MRS_NO, DOC_NO, DOC_DT, AMOUNT, FREE_TXT, PROCESS_FLAG) 
+				values (:seq_id, :batch_id, :wban_no, :mrs_no, :doc_no, :doc_dt, :amount, :free_txt, :process_flag)
+            ]]>
+			</value>
+		</property>
+		<!-- It will take care matching between object property and sql name parameter -->
+		<property name="itemSqlParameterSourceProvider">
+			<bean
+				class="org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider" />
+		</property>
+	</bean>
+
+</beans>
